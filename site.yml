@@ -1,0 +1,13 @@
+---
+- name: Preparar servidores e criar cluster K3s na GCP
+  hosts: masters:workers
+  become: true
+  roles:
+    - preparacao_linux
+    - cluster_k3s
+
+- name: Gerar kubeconfig remoto no controlador AWS
+  hosts: master01
+  become: true
+  roles:
+    - kubeconfig_remoto
