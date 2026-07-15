@@ -1,0 +1,57 @@
+---
+- name: Validar o destino Kubernetes da aplicação Coffee Shop
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'localhost'
+      - gcp_kubeconfig != monitoring_kubeconfig
+    fail_msg: A aplicação deve usar exclusivamente o kubeconfig do cluster GCP.
+
+- name: Renderizar os manifestos da aplicação Coffee Shop
+  ansible.builtin.template:
+    src: coffee-shop.yml.j2
+    dest: /tmp/coffee-shop.yml
+    mode: '0600'
+
+- name: Aplicar os recursos da aplicação Coffee Shop no cluster GCP
+  kubernetes.core.k8s:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    state: present
+    src: /tmp/coffee-shop.yml
+    wait: false
+
+- name: Aguardar a disponibilidade das três réplicas da Coffee Shop
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: coffee-shop
+    namespace: coffee-shop
+  register: implantacao_coffee_shop
+  retries: 30
+  delay: 10
+  until:
+    - implantacao_coffee_shop.resources | length == 1
+    - implantacao_coffee_shop.resources[0].status.availableReplicas | default(0) == coffee_shop_replicas
+    - implantacao_coffee_shop.resources[0].status.updatedReplicas | default(0) == coffee_shop_replicas
+
+- name: Consultar os pods da aplicação Coffee Shop
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: coffee-shop
+    label_selectors:
+      - app=coffee-shop
+  register: pods_coffee_shop
+
+- name: Selecionar apenas os pods ativos da Coffee Shop
+  ansible.builtin.set_fact:
+    pods_coffee_shop_ativos: "{{ pods_coffee_shop.resources | selectattr('status.phase', 'equalto', 'Running') | list }}"
+
+- name: Validar uma réplica da Coffee Shop em cada nó do cluster
+  ansible.builtin.assert:
+    that:
+      - pods_coffee_shop_ativos | length >= coffee_shop_replicas
+      - pods_coffee_shop_ativos | map(attribute='status.phase') | select('equalto', 'Running') | list | length == coffee_shop_replicas
+      - pods_coffee_shop_ativos | map(attribute='spec.nodeName') | unique | list | length == coffee_shop_replicas
+    fail_msg: As réplicas da Coffee Shop não estão distribuídas e operacionais nos três nós.

@@ -1,0 +1,11 @@
+- name: Instalar o agente K3s no nó de trabalho
+
+  shell: |
+    curl -sfL {{ k3s_install_script }} | \
+    INSTALL_K3S_VERSION={{ k3s_version }} \
+    K3S_URL=https://{{ master_ip }}:6443 \
+    K3S_TOKEN={{ cluster_token }} \
+    sh -
+
+  args:
+    creates: /usr/local/bin/k3s-agent

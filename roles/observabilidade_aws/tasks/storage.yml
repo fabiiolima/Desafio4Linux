@@ -1,0 +1,10 @@
+- name: Criar namespaces de monitoramento e zabbix
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    api_version: v1
+    kind: Namespace
+    name: "{{ item }}"
+    state: present
+  loop:
+    - monitoring
+    - zabbix

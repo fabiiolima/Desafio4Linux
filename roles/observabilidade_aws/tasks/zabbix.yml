@@ -1,0 +1,36 @@
+---
+- name: Gerar valores do PostgreSQL
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/postgres-values.yml.j2"
+    dest: /tmp/postgres-values.yml
+    mode: '0600'
+
+- name: Gerar valores do Zabbix
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/zabbix-values.yml.j2"
+    dest: /tmp/zabbix-values.yml
+    mode: '0600'
+
+- name: Instalar ou atualizar PostgreSQL do Zabbix na AWS
+  kubernetes.core.helm:
+    kubeconfig: "{{ monitoring_kubeconfig }}"
+    name: postgres
+    chart_ref: bitnami/postgresql
+    release_namespace: monitoring
+    create_namespace: true
+    release_state: present
+    values_files: [/tmp/postgres-values.yml]
+    wait: true
+    wait_timeout: 10m
+
+- name: Instalar ou atualizar Zabbix na AWS
+  kubernetes.core.helm:
+    kubeconfig: "{{ monitoring_kubeconfig }}"
+    name: zabbix
+    chart_ref: zabbix-chart/zabbix
+    release_namespace: monitoring
+    create_namespace: true
+    release_state: present
+    values_files: [/tmp/zabbix-values.yml]
+    wait: true
+    wait_timeout: 10m

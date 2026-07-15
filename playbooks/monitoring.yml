@@ -1,0 +1,7 @@
+---
+- name: Instalar pilha de observabilidade no K3s local da AWS
+  hosts: monitoring
+  become: true
+  gather_facts: true
+  roles:
+    - observabilidade_aws

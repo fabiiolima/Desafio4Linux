@@ -1,0 +1,10 @@
+---
+- name: Instalar agentes de infraestrutura nas VMs GCP
+  hosts: masters:workers
+  become: true
+  roles: [agentes_gcp]
+
+- name: Instalar coletores Kubernetes na GCP
+  hosts: monitoring
+  gather_facts: false
+  roles: [coletores_gcp]

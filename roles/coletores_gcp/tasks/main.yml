@@ -1,0 +1,81 @@
+---
+- name: Confirmar uso do kubeconfig remoto GCP
+  ansible.builtin.assert:
+    that:
+      - gcp_kubeconfig != monitoring_kubeconfig
+      - gcp_kubeconfig == '/home/ubuntu/.kube/k3s-remote.yaml'
+
+- name: Adicionar repositórios dos coletores
+  kubernetes.core.helm_repository:
+    name: "{{ item.name }}"
+    repo_url: "{{ item.url }}"
+  loop:
+    - { name: prometheus-community, url: 'https://prometheus-community.github.io/helm-charts' }
+    - { name: fluent, url: 'https://fluent.github.io/helm-charts' }
+
+- name: Instalar kube-state-metrics na GCP
+  kubernetes.core.helm:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    name: kube-state-metrics
+    chart_ref: prometheus-community/kube-state-metrics
+    release_namespace: observability-agents
+    create_namespace: true
+    release_state: present
+    wait: true
+    values:
+      service:
+        type: NodePort
+        nodePort: 30101
+
+- name: Instalar Prometheus coletor de métricas Kubernetes na GCP
+  kubernetes.core.helm:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    name: prometheus-coletor
+    chart_ref: prometheus-community/prometheus
+    release_namespace: observability-agents
+    create_namespace: true
+    release_state: present
+    wait: true
+    values:
+      alertmanager:
+        enabled: false
+      prometheus-pushgateway:
+        enabled: false
+      kube-state-metrics:
+        enabled: false
+      prometheus-node-exporter:
+        enabled: false
+      server:
+        persistentVolume:
+          enabled: false
+        retention: 2h
+        remoteWrite:
+          - url: "{{ prometheus_remote_write_url }}"
+            write_relabel_configs:
+              - source_labels: [__name__]
+                regex: "container_.*|kubelet_.*|kube_.*|node_namespace_pod_container:.*"
+                action: keep
+
+- name: Instalar Fluent Bit coletor na GCP
+  kubernetes.core.helm:
+    kubeconfig: "{{ gcp_kubeconfig }}"
+    name: fluent-bit
+    chart_ref: fluent/fluent-bit
+    release_namespace: observability-agents
+    create_namespace: true
+    release_state: present
+    wait: true
+    values:
+      config:
+        outputs: |
+          [OUTPUT]
+              Name opensearch
+              Match kube.*
+              Host {{ aws_public_ip }}
+              Port 30084
+              Index coffee-shop
+              Logstash_Format On
+              Logstash_Prefix coffee-shop
+              Suppress_Type_Name On
+              Replace_Dots On
+              Retry_Limit False

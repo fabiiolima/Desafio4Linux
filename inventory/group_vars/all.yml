@@ -1,0 +1,28 @@
+---
+k3s_version: v1.36.2+k3s1
+cluster_token: 4linuxcluster
+master_ip: 34.133.198.40
+k3s_install_script: https://get.k3s.io
+ansible_python_interpreter: /usr/bin/python3
+
+coffee_shop_image: bkimminich/juice-shop:v14.5.1
+coffee_shop_replicas: 3
+coffee_shop_nodeport: 30000
+
+monitoring_kubeconfig: /etc/rancher/k3s/k3s.yaml
+gcp_kubeconfig: /home/ubuntu/.kube/k3s-remote.yaml
+aws_public_ip: 54.173.233.120
+
+
+grafana_admin_user: admin
+grafana_admin_password: 4LinuxGrafana2026
+postgres_user: zabbix
+postgres_password: zabbixpass
+postgres_database: zabbix
+zabbix_api_url: http://127.0.0.1:30081/api_jsonrpc.php
+zabbix_api_usuario: Admin
+zabbix_api_senha: 4LinuxZabbix2026
+zabbix_api_senhas_anteriores:
+  - zabbix
+
+prometheus_remote_write_url: "http://{{ aws_public_ip }}:30082/api/v1/write"

@@ -1,0 +1,13 @@
+- name: Instalar o servidor K3s no control plane
+
+  shell: |
+    curl -sfL {{ k3s_install_script }} | \
+    INSTALL_K3S_VERSION={{ k3s_version }} \
+    K3S_TOKEN={{ cluster_token }} \
+    sh -s - \
+    --write-kubeconfig-mode 644 \
+    --node-name master01 \
+    --tls-san {{ master_ip }}
+
+  args:
+    creates: /usr/local/bin/k3s

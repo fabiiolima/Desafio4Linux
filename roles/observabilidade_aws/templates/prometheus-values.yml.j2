@@ -1,0 +1,27 @@
+server:
+  extraFlags:
+    - web.enable-remote-write-receiver
+  service:
+    type: NodePort
+    nodePort: 30082
+  persistentVolume:
+    enabled: true
+    size: 8Gi
+alertmanager:
+  enabled: true
+pushgateway:
+  enabled: false
+extraScrapeConfigs: |
+  - job_name: coffee-shop
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['{{ master_ip }}:{{ coffee_shop_nodeport }}']
+  - job_name: gcp-node-exporter
+    static_configs:
+      - targets:
+          - '{{ hostvars["master01"].ansible_host }}:30100'
+          - '{{ hostvars["worker01"].ansible_host }}:30100'
+          - '{{ hostvars["worker02"].ansible_host }}:30100'
+  - job_name: gcp-kube-state-metrics
+    static_configs:
+      - targets: ['{{ master_ip }}:30101']

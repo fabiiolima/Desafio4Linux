@@ -1,0 +1,12 @@
+---
+- name: Provisionar a infraestrutura K3s da GCP
+  ansible.builtin.import_playbook: ../site.yml
+
+- name: Provisionar a pilha central de observabilidade na AWS
+  ansible.builtin.import_playbook: monitoring.yml
+
+- name: Implantar a aplicação Coffee Shop na GCP
+  ansible.builtin.import_playbook: coffee-shop.yml
+
+- name: Provisionar agentes e coletores da GCP
+  ansible.builtin.import_playbook: agents.yml

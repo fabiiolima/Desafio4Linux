@@ -1,0 +1,26 @@
+- name: Atualizar o índice de pacotes APT
+  apt:
+    update_cache: yes
+
+- name: Atualizar os pacotes do sistema
+  apt:
+    upgrade: dist
+
+- name: Instalar ferramentas administrativas
+  apt:
+    name:
+      - curl
+      - git
+      - vim
+      - wget
+      - jq
+      - htop
+      - net-tools
+      - unzip
+    state: present
+
+- name: Instalar o cliente NFS
+  apt:
+    name:
+      - nfs-common
+    state: present

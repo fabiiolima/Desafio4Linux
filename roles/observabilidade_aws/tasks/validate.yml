@@ -1,0 +1,10 @@
+---
+- name: Verificar status dos pods locais da AWS
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ monitoring_kubeconfig }} get pods -A
+  register: status_pods
+  changed_when: false
+
+- name: Exibir pods ativos
+  ansible.builtin.debug:
+    var: status_pods.stdout_lines

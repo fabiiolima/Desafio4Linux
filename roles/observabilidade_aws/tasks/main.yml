@@ -1,0 +1,18 @@
+---
+- name: Confirmar que a pilha usa o K3s local da AWS
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname == 'localhost'
+      - ansible_connection == 'local'
+      - monitoring_kubeconfig == '/etc/rancher/k3s/k3s.yaml'
+    fail_msg: "A pilha central só pode usar o K3s local da AWS."
+
+- import_tasks: helm.yml
+- import_tasks: storage.yml
+- import_tasks: prometheus.yml
+- import_tasks: grafana.yml
+- import_tasks: zabbix.yml
+- import_tasks: configurar_zabbix.yml
+- import_tasks: opensearch.yml
+- import_tasks: fluentbit.yml
+- import_tasks: validate.yml

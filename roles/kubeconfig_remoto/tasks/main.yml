@@ -1,0 +1,30 @@
+---
+- name: Copiar o kubeconfig do master para o controlador AWS
+  fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: ~/.kube/k3s-remote.yaml
+    flat: yes
+
+- name: Atualizar o endereço da API no kubeconfig remoto
+  replace:
+    path: ~/.kube/k3s-remote.yaml
+    regexp: '127.0.0.1'
+    replace: "{{ ansible_host | default('34.133.198.40') }}"
+  delegate_to: localhost
+  become: no
+
+- name: Remover a autoridade certificadora incompatível do kubeconfig
+  lineinfile:
+    path: ~/.kube/k3s-remote.yaml
+    regexp: 'certificate-authority-data:.*'
+    state: absent
+  delegate_to: localhost
+  become: no
+
+- name: Configurar a validação TLS do kubeconfig remoto
+  lineinfile:
+    path: ~/.kube/k3s-remote.yaml
+    insertafter: 'server:.*'
+    line: '    insecure-skip-tls-verify: true'
+  delegate_to: localhost
+  become: no

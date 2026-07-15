@@ -1,0 +1,46 @@
+service:
+  type: NodePort
+  nodePort: 30083
+deploymentStrategy:
+  type: Recreate
+adminUser: "{{ grafana_admin_user }}"
+adminPassword: "{{ grafana_admin_password }}"
+initChownData:
+  enabled: false
+persistence:
+  enabled: true
+  size: 2Gi
+plugins:
+  - alexanderzobnin-zabbix-app
+  - grafana-opensearch-datasource
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        isDefault: true
+      - name: Zabbix
+        uid: zabbix
+        type: alexanderzobnin-zabbix-datasource
+        access: proxy
+        url: http://zabbix-zabbix-web.monitoring.svc.cluster.local/api_jsonrpc.php
+        jsonData:
+          username: "{{ zabbix_api_usuario }}"
+        secureJsonData:
+          password: "{{ zabbix_api_senha }}"
+      - name: OpenSearch
+        uid: opensearch
+        type: grafana-opensearch-datasource
+        access: proxy
+        url: http://opensearch-cluster-master.monitoring.svc.cluster.local:9200
+        jsonData:
+          database: "[coffee-shop-]YYYY.MM.DD"
+          interval: Daily
+          timeField: '@timestamp'
+          logMessageField: log
+          flavor: opensearch
+          version: 3.0.0

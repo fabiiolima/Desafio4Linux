@@ -1,0 +1,130 @@
+---
+- name: Aguardar a disponibilidade da API do Zabbix
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body: {jsonrpc: '2.0', method: apiinfo.version, params: {}, id: 1}
+    status_code: 200
+  register: versao_api_zabbix
+  retries: 30
+  delay: 10
+  until: versao_api_zabbix.json.result is defined
+
+- name: Tentar autenticar na API do Zabbix com as senhas conhecidas
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: user.login
+      params: {username: "{{ zabbix_api_usuario }}", password: "{{ item }}"}
+      id: 2
+  loop: "{{ [zabbix_api_senha] + (zabbix_api_senhas_anteriores | default([])) }}"
+  register: tentativas_autenticacao_zabbix
+  failed_when: false
+  no_log: true
+
+- name: Selecionar a autenticação válida do Zabbix
+  ansible.builtin.set_fact:
+    autenticacao_zabbix: "{{ tentativas_autenticacao_zabbix.results | selectattr('json.result', 'defined') | list | first }}"
+  no_log: true
+
+- name: Consultar o usuário administrador do Zabbix
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: user.get
+      params: {output: [userid, username], filter: {username: ["{{ zabbix_api_usuario }}"]}}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 3
+  register: usuario_admin_zabbix
+
+- name: Adequar o nome do usuário administrador à política de senha
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: user.update
+      params: {userid: "{{ usuario_admin_zabbix.json.result[0].userid }}", name: Operador, surname: Monitoramento}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 4
+  register: atualizacao_perfil_zabbix
+  failed_when: atualizacao_perfil_zabbix.json.error is defined
+  when: autenticacao_zabbix.item != zabbix_api_senha
+
+- name: Definir a senha do usuário administrador do Zabbix
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: user.update
+      params: {userid: "{{ usuario_admin_zabbix.json.result[0].userid }}", current_passwd: "{{ autenticacao_zabbix.item }}", passwd: "{{ zabbix_api_senha }}"}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 5
+  register: atualizacao_senha_zabbix
+  failed_when: atualizacao_senha_zabbix.json.error is defined
+  when: autenticacao_zabbix.item != zabbix_api_senha
+  no_log: true
+
+- name: Reautenticar no Zabbix após a alteração da senha
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: user.login
+      params: {username: "{{ zabbix_api_usuario }}", password: "{{ zabbix_api_senha }}"}
+      id: 6
+  register: nova_autenticacao_zabbix
+  no_log: true
+
+- name: Utilizar a sessão atualizada do Zabbix
+  ansible.builtin.set_fact:
+    autenticacao_zabbix: "{{ nova_autenticacao_zabbix }}"
+  no_log: true
+
+- name: Consultar o grupo de servidores Linux no Zabbix
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: hostgroup.get
+      params: {output: [groupid, name], filter: {name: [Linux servers]}}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 5
+  register: grupo_linux_zabbix
+
+- name: Consultar o modelo Linux por agente ativo no Zabbix
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: template.get
+      params: {output: [templateid, host], filter: {host: [Linux by Zabbix agent active]}}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 6
+  register: modelo_linux_zabbix
+
+- name: Configurar monitoramento ativo dos servidores GCP no Zabbix
+  ansible.builtin.include_tasks: configurar_host_zabbix.yml
+  loop:
+    - {nome: master01}
+    - {nome: worker01}
+    - {nome: worker02}
+  loop_control:
+    loop_var: servidor_zabbix
+    label: "{{ servidor_zabbix.nome }}"

@@ -1,0 +1,18 @@
+---
+- name: Gerar valores do Grafana
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/grafana-values.yml.j2"
+    dest: /tmp/grafana-values.yml
+    mode: '0600'
+
+- name: Instalar ou atualizar Grafana na AWS
+  kubernetes.core.helm:
+    kubeconfig: "{{ monitoring_kubeconfig }}"
+    name: grafana
+    chart_ref: grafana/grafana
+    release_namespace: monitoring
+    create_namespace: true
+    release_state: present
+    values_files: [/tmp/grafana-values.yml]
+    wait: true
+    wait_timeout: 10m

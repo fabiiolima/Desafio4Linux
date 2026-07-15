@@ -1,0 +1,77 @@
+---
+- name: "Consultar o servidor {{ servidor_zabbix.nome }} no Zabbix"
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: host.get
+      params:
+        output: [hostid, host]
+        selectInterfaces: [interfaceid]
+        filter: {host: ["{{ servidor_zabbix.nome }}"]}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 10
+  register: consulta_host_zabbix
+
+- name: "Cadastrar {{ servidor_zabbix.nome }} para verificações ativas"
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: host.create
+      params:
+        host: "{{ servidor_zabbix.nome }}"
+        groups: [{groupid: "{{ grupo_linux_zabbix.json.result[0].groupid }}"}]
+        templates: [{templateid: "{{ modelo_linux_zabbix.json.result[0].templateid }}"}]
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 11
+  when: consulta_host_zabbix.json.result | length == 0
+
+- name: "Remover interface passiva de {{ servidor_zabbix.nome }}"
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: '2.0'
+      method: hostinterface.delete
+      params: ["{{ item.interfaceid }}"]
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 12
+  loop: "{{ consulta_host_zabbix.json.result[0].interfaces | default([]) if consulta_host_zabbix.json.result | length > 0 else [] }}"
+  failed_when: false
+
+- name: "Consultar checagens externas antigas de {{ servidor_zabbix.nome }}"
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: item.get
+      params:
+        output: [itemid, key_, status]
+        hostids: ["{{ consulta_host_zabbix.json.result[0].hostid }}"]
+        filter: {key_: [icmpping, "net.tcp.service[ssh]"]}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 13
+  register: itens_externos_zabbix
+  when: consulta_host_zabbix.json.result | length > 0
+
+- name: "Desabilitar checagens externas antigas de {{ servidor_zabbix.nome }}"
+  ansible.builtin.uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: item.update
+      params: {itemid: "{{ item.itemid }}", status: 1}
+      auth: "{{ autenticacao_zabbix.json.result }}"
+      id: 14
+  loop: "{{ itens_externos_zabbix.json.result | default([]) }}"
+  when: item.status != "1"

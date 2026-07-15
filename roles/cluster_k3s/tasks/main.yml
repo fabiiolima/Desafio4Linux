@@ -1,0 +1,8 @@
+- import_tasks: master.yml
+  when: inventory_hostname in groups['masters']
+
+- import_tasks: workers.yml
+  when: inventory_hostname in groups['workers']
+
+- import_tasks: validate.yml
+  when: inventory_hostname in groups['masters']

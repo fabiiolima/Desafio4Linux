@@ -1,0 +1,30 @@
+---
+- name: Instalar Zabbix Agent e node-exporter nos nós GCP
+  ansible.builtin.apt:
+    name: [zabbix-agent, prometheus-node-exporter]
+    state: present
+    update_cache: true
+
+- name: Configurar Zabbix Agent para o servidor AWS
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/zabbix_agentd.conf
+    regexp: "^#?{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - { key: Server, value: "127.0.0.1" }
+    - { key: ServerActive, value: "{{ aws_public_ip }}:30085" }
+    - { key: Hostname, value: "{{ inventory_hostname }}" }
+    - { key: StartAgents, value: "0" }
+
+- name: Expor node-exporter na faixa NodePort liberada
+  ansible.builtin.lineinfile:
+    path: /etc/default/prometheus-node-exporter
+    regexp: '^ARGS='
+    line: 'ARGS="--web.listen-address=:30100"'
+
+- name: Habilitar e reiniciar agentes
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: restarted
+  loop: [zabbix-agent, prometheus-node-exporter]

@@ -1,0 +1,6 @@
+---
+- name: Implantar a aplicação Coffee Shop no cluster K3s da GCP
+  hosts: monitoring
+  gather_facts: false
+  roles:
+    - aplicacao_coffee_shop

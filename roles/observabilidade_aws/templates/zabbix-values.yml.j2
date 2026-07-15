@@ -1,0 +1,22 @@
+postgresql:
+  enabled: false
+postgresAccess:
+  host: postgres-postgresql
+  port: "5432"
+  database: "{{ postgres_database }}"
+  user: "{{ postgres_user }}"
+  password: "{{ postgres_password }}"
+zabbixWeb:
+  replicaCount: 1
+  service:
+    type: NodePort
+    nodePort: 30081
+zabbixServer:
+  service:
+    type: NodePort
+    nodePort: 30085
+  replicaCount: 1
+zabbixAgent:
+  runAsSidecar: true
+  runAsDaemonSet: false
+  enabled: true

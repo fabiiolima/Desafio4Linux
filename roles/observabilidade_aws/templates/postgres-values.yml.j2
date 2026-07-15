@@ -1,0 +1,14 @@
+architecture: standalone
+auth:
+  postgresPassword: "{{ postgres_superuser_password | default('postgres') }}"
+  username: "{{ postgres_user }}"
+  password: "{{ postgres_password }}"
+  database: "{{ postgres_database }}"
+primary:
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 10Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }

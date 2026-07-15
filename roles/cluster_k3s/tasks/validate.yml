@@ -1,0 +1,11 @@
+- name: Aguardar a inicialização do cluster
+
+  pause:
+    seconds: 20
+
+- name: Consultar os nós do cluster
+  command: /usr/local/bin/k3s kubectl get nodes
+  register: nodes
+
+- debug:
+    var: nodes.stdout

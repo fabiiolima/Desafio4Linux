@@ -1,0 +1,69 @@
+---
+- name: Instalar ou atualizar OpenSearch na AWS
+  kubernetes.core.helm:
+    kubeconfig: "{{ monitoring_kubeconfig }}"
+    name: opensearch
+    chart_ref: opensearch/opensearch
+    release_namespace: monitoring
+    create_namespace: true
+    release_state: present
+    wait: false
+    values:
+      singleNode: true
+      service:
+        type: NodePort
+        nodePort: 30084
+      extraEnvs:
+        - { name: DISABLE_SECURITY_PLUGIN, value: "true" }
+      persistence: { enabled: true, size: 20Gi }
+      opensearchJavaOpts: "-Xms768m -Xmx768m"
+      resources:
+        requests: { cpu: 250m, memory: 1Gi }
+        limits: { cpu: "1", memory: 2Gi }
+
+- name: Instalar ou atualizar OpenSearch Painels na AWS
+  kubernetes.core.helm:
+    kubeconfig: "{{ monitoring_kubeconfig }}"
+    name: dashboards
+    chart_ref: opensearch/opensearch-dashboards
+    release_namespace: monitoring
+    create_namespace: true
+    release_state: present
+    wait: true
+    wait_timeout: 10m
+    values:
+      opensearchHosts: "http://opensearch-cluster-master:9200"
+      extraEnvs:
+        - { name: DISABLE_SECURITY_DASHBOARDS_PLUGIN, value: "true" }
+      service: { type: NodePort, nodePort: 30080 }
+
+- name: Aguardar os campos dos índices Coffee Shop no OpenSearch Dashboards
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:30080/api/index_patterns/_fields_for_wildcard?pattern=coffee-shop-*"
+    method: GET
+    headers:
+      osd-xsrf: "true"
+    return_content: true
+    status_code: 200
+  register: campos_indice_coffee_shop
+  retries: 30
+  delay: 10
+  until:
+    - campos_indice_coffee_shop.json.fields is defined
+    - campos_indice_coffee_shop.json.fields | selectattr('name', 'equalto', '@timestamp') | list | length == 1
+
+- name: Provisionar index pattern Coffee Shop com campos atualizados
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:30080/api/saved_objects/index-pattern/coffee-shop-logs?overwrite=true"
+    method: POST
+    headers:
+      osd-xsrf: "true"
+    body_format: json
+    body:
+      attributes:
+        title: "coffee-shop-*"
+        timeFieldName: "@timestamp"
+        fields: "{{ campos_indice_coffee_shop.json.fields | to_json }}"
+    status_code:
+      - 200
+      - 201
